@@ -1,7 +1,19 @@
+import 'dart:io';
+
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg_provider/flutter_svg_provider.dart';
+import 'package:intl/intl.dart';
+import 'package:rate_my_app/rate_my_app.dart';
 import 'package:weather/Components/blur_box.dart';
+import 'package:weather/Components/icon/des_icon_icons.dart';
 import 'package:weather/Components/line_graph.dart';
 import 'package:weather/Components/measurs.dart';
-import 'package:weather/Services/get_weather_data.dart';
+import 'package:weather/Screens/setting_page.dart';
+import 'package:weather/Services/weather_model.dart';
+import 'package:weather/Services/weather_repo.dart';
+import 'package:weather/bloc/weather_bloc.dart';
+import 'package:weather/constants.dart';
 import 'package:weather/sizedconfig.dart';
 import 'package:flutter/material.dart';
 
@@ -11,185 +23,530 @@ class Background extends StatefulWidget {
 }
 
 class _BackgroundState extends State<Background> {
-  GetweatherData getweatherData = GetweatherData();
-
+  WeatherRepo getweatherData = WeatherRepo();
+  WeatherBloc myBloc = WeatherBloc();
   int temperature;
   double pressure;
   double wind;
   double humidity;
   double uvIndex;
   String description;
-  var weatherImg;
-  var weatherData;
+  WeatherModel weatherData;
+  TextEditingController myController = TextEditingController();
+  String city;
+  bool title = true;
+  bool _folded = true;
+  RateMyApp rateMyApp = RateMyApp(
+    preferencesPrefix: 'rateMyApp_',
+    minDays: 2,
+    minLaunches: 2,
+    remindDays: 5,
+    remindLaunches: 5,
+    googlePlayIdentifier: 'com.sdm.weatherry',
+  );
   @override
   void initState() {
     super.initState();
-    updateUI();
-  }
+    rateMyApp.init().then((_) {
+      print("RATING 1234567");
+      if (rateMyApp.shouldOpenDialog) {
+        rateMyApp.showRateDialog(
+          context,
+          title: 'Rate this app', // The dialog title.
+          message:
+              'If you like this app, please take a little bit of your time to review it !\nIt really helps us and it shouldn\'t take you more than one minute.', // The dialog message.
+          noButton: 'NO THANKS', // The dialog "no" button text.
+          laterButton: 'MAYBE LATER', // The dialog "later" button text.
+          rateButton: 'RATE', // The dialog "rate" button text.
 
-  void updateUI() async {
-    print("HI");
-    print("HI Sourabh");
+          listener: (button) {
+            // The button click listener (useful if you want to cancel the click event).
+            switch (button) {
+              case RateMyAppDialogButton.later:
+                print('Clicked on "Later".');
+                break;
+              case RateMyAppDialogButton.no:
+                print('Clicked on "No".');
+                break;
+              case RateMyAppDialogButton.rate:
+                print('Clicked on "Rate".');
+                break;
+            }
 
-    weatherData = await getweatherData.getLocationweather();
-    print("$weatherData");
-
-    var temp = weatherData['current']['weather'][0]['icon'];
-
-    var tempURL = "https://openweathermap.org/img/wn/$temp@2x.png";
-
-    weatherImg = Image.network(tempURL, fit: BoxFit.fill, scale: 2);
-
-    setState(() {
-      double temp = weatherData['current']['temp'];
-      int pre = weatherData['current']['pressure'];
-      wind = weatherData['current']['wind_speed'];
-      var hum = weatherData['current']['humidity'];
-      var uv = weatherData['current']['uvi'];
-      description = weatherData['current']['weather'][0]['description'];
-      temperature = temp.toInt();
-      pressure = pre.toDouble();
-      humidity = hum.toDouble();
-      uvIndex = uv.toDouble();
+            return true; // Return false if you want to cancel the click event.
+          },
+          ignoreNativeDialog: Platform
+              .isAndroid, // Set to false if you want to show the Apple's native app rating dialog on iOS or Google's native app rating dialog (depends on the current Platform).
+          dialogStyle: const DialogStyle(), // Custom dialog styles.
+          onDismissed: () => rateMyApp.callEvent(RateMyAppEventType
+              .laterButtonPressed), // Called when the user dismissed the dialog (either by taping outside or by pressing the "back" button).
+          // contentBuilder: (context, defaultContent) => content, // This one allows you to change the default dialog content.
+          // actionsBuilder: (context) => [], // This one allows you to use your own buttons.
+        );
+      }
     });
-
-    print("Temp : " + "$temperature");
-    print("pressure : " + "$pressure");
-    print("wind_speed : " + "$wind");
-    print("humidity : " + "$humidity");
-    print("UVI: " + "$uvIndex");
-    print("Desc : " + description);
   }
+
+  @override
+  void dispose() {
+    myController.dispose();
+    super.dispose();
+  }
+
+  String readTimestamp(int timestamp) {
+    var format = DateFormat('jm');
+    var date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    var dates = format.format(date);
+    return dates;
+  }
+
+  int locality(state) {
+    print("LOcality ${state.address.first.locality}");
+
+    if (state.address.first.locality == "") {
+      print("LOcality ${state.address.first.locality}");
+      print("administrative area ${state.address.first.administrativeArea}");
+      return null;
+    }
+  }
+
+  var hour = DateTime.now().hour;
 
   @override
   Widget build(BuildContext context) {
     SizedConfig().init(context);
     double defaultSize = SizedConfig.blockSizeVertical;
-    return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage("assets/images/night.png"),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-              Colors.black.withOpacity(0.6), BlendMode.dstATop),
+    double defaultHorizon = SizedConfig.blockSizeHorizontal;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        // ignore: close_sinks
+        BlocProvider.of<WeatherBloc>(context)..add(WeatherRequested());
+        Future<String> temp = Future.delayed(Duration(seconds: 4), () {
+          return "success";
+        });
+        return temp;
+      },
+      triggerMode: RefreshIndicatorTriggerMode.anywhere,
+      child: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: hour > 6 && hour < 18
+                ? AssetImage("assets/images/day.png")
+                : AssetImage("assets/images/night.png"),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(
+                Colors.black.withOpacity(0.5), BlendMode.dstATop),
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(SizedConfig.blockSizeVertical * 2),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Icon(Icons.menu, size: defaultSize * 3.0),
-                  Text(
-                    "weatherry",
-                    style: TextStyle(
-                      fontSize: defaultSize * 5.0,
-                      fontWeight: FontWeight.bold,
+        child: BlocBuilder<WeatherBloc, WeatherState>(
+          builder: (context, state) {
+            if (state is WeatherInitial) {
+              // WeatherRequested();
+              return Center(child: CircularProgressIndicator());
+            }
+            if (state is WeatherLoadFailure) {
+              print("in WeatherLoad Fail");
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("Error while Loading \n   City not found"),
+                    ElevatedButton(
+                      onPressed: () {
+                        BlocProvider.of<WeatherBloc>(context)
+                          ..add(WeatherRequested());
+                      },
+                      child: Text("Your location's Weather"),
                     ),
+                  ],
+                ),
+              );
+            }
+            if (state is WeatherLoadInProgress) {
+              return Center(child: CircularProgressIndicator());
+            }
+            if (state is WeatherLoadSuccess) {
+              String iconNo = state.weatherData.current.weather.first.icon;
+              print("Icon NO $iconNo");
+              if (state.address.first.locality == "") {
+                print("LOcality ${state.address.first.locality}");
+              }
+              return SafeArea(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: defaultSize * 130,
+                    minHeight: defaultSize * 110,
                   ),
-                  Icon(Icons.search, size: defaultSize * 3.0),
-                ],
-              ),
-            ),
-            SizedBox(height: defaultSize * 2.0),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: BlurBox(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  child: ListView(
+                      shrinkWrap: true,
+                      physics: AlwaysScrollableScrollPhysics(),
                       children: [
-                        Text(
-                          "Nashik",
-                          style: TextStyle(
-                            fontSize: defaultSize * 4.0,
-                            fontWeight: FontWeight.normal,
+                        AppBar(
+                          elevation: 0,
+                          backgroundColor: Colors.transparent,
+                          title: title
+                              ? Text(
+                                  "Weatherry",
+                                  style: TextStyle(
+                                    fontSize: defaultHorizon * 10.0,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              : Text(""),
+                          centerTitle: true,
+                          leading: IconButton(
+                            icon: Icon(Icons.menu),
+                            iconSize: defaultHorizon * 7.0,
+                            onPressed: () {
+                              Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (context) => SettingPage()));
+                            },
                           ),
-                        ),
-                        Text(
-                          "$temperature",
-                          style: TextStyle(
-                              fontSize: defaultSize * 10.0,
-                              fontWeight: FontWeight.w200),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              child: weatherImg ?? Icon(Icons.cloud),
-                            ),
-                            SizedBox(width: 5),
-                            Text(
-                              description ?? "loading",
-                              style: TextStyle(
-                                fontSize: defaultSize * 2.5,
+                          actions: [
+                            Padding(
+                              padding:
+                                  EdgeInsets.only(right: defaultHorizon * 2),
+                              child: AnimatedContainer(
+                                duration: Duration(milliseconds: 400),
+                                width: _folded
+                                    ? defaultHorizon * 13
+                                    : defaultHorizon * 80,
+                                height: defaultSize * 2,
+                                curve: Curves.bounceIn,
+                                decoration: BoxDecoration(
+                                  borderRadius:
+                                      BorderRadius.circular(defaultHorizon * 5),
+                                  color: !_folded
+                                      ? Colors.grey.shade300
+                                      : Colors.transparent,
+                                  boxShadow: !_folded
+                                      ? kElevationToShadow[6]
+                                      : kElevationToShadow[0],
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        padding: EdgeInsets.only(
+                                            left: defaultHorizon * 2),
+                                        child: !_folded
+                                            ? TextField(
+                                                textInputAction:
+                                                    TextInputAction.done,
+                                                onSubmitted: (myController) {
+                                                  String city =
+                                                      myController.toString();
+                                                  print(city);
+                                                  BlocProvider.of<WeatherBloc>(
+                                                      context)
+                                                    ..add(
+                                                      CityWeatherRequested(
+                                                          city: city),
+                                                    );
+                                                },
+                                                style: TextStyle(
+                                                    color: Colors.black),
+                                                controller: myController,
+                                                decoration: InputDecoration(
+                                                  hintText: 'Search city',
+                                                  hintStyle: TextStyle(
+                                                      color: Colors.blue[900]),
+                                                  border: InputBorder.none,
+                                                ),
+                                              )
+                                            : null,
+                                      ),
+                                    ),
+                                    Container(
+                                      child: Material(
+                                        type: MaterialType.transparency,
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.only(
+                                            topLeft: Radius.circular(_folded
+                                                ? defaultHorizon * 3
+                                                : 0),
+                                            topRight: Radius.circular(
+                                                defaultHorizon * 3),
+                                            bottomLeft: Radius.circular(_folded
+                                                ? defaultHorizon * 3
+                                                : 0),
+                                            bottomRight: Radius.circular(
+                                                defaultHorizon * 3),
+                                          ),
+                                          child: Padding(
+                                            padding: EdgeInsets.only(
+                                                right: defaultHorizon * 1.5),
+                                            child: Icon(
+                                              _folded
+                                                  ? Icons.search
+                                                  : Icons.close,
+                                              color: _folded
+                                                  ? Colors.white
+                                                  : Colors.blue[900],
+                                              size: defaultHorizon * 7.0,
+                                            ),
+                                          ),
+                                          onTap: () {
+                                            setState(() {
+                                              _folded = !_folded;
+                                              title = !title;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    )
+                                  ],
+                                ),
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
+                        SizedBox(
+                          height: defaultSize * 80,
+                          child: Column(
+                            children: [
+                              SizedBox(height: defaultSize * 2.0),
+                              Expanded(
+                                flex: 4,
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      flex: 5,
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            flex: 7,
+                                            child: BlurBox(
+                                              child: Column(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.start,
+                                                children: [
+                                                  Container(
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Icon(Icons.location_pin,
+                                                            size: defaultSize *
+                                                                2.5),
+                                                        SizedBox(
+                                                            width: defaultSize *
+                                                                1),
+                                                        Tooltip(
+                                                          message: "Location",
+                                                          child:
+                                                              SingleChildScrollView(
+                                                            scrollDirection:
+                                                                Axis.horizontal,
+                                                            child: AutoSizeText(
+                                                              locality(state) ==
+                                                                      null
+                                                                  ? state
+                                                                      .address
+                                                                      .first
+                                                                      .locality
+                                                                  : state
+                                                                      .address
+                                                                      .first
+                                                                      .administrativeArea,
+                                                              style: TextStyle(
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .normal,
+                                                              ),
+                                                              minFontSize: 18.0,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Tooltip(
+                                                    message:
+                                                        "Today's temperature",
+                                                    child: Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        Text(
+                                                          state.weatherData
+                                                              .current.temp
+                                                              .toInt()
+                                                              .toString(),
+                                                          style: TextStyle(
+                                                              fontSize:
+                                                                  defaultSize *
+                                                                      9.0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w200),
+                                                        ),
+                                                        Text(
+                                                          " \u2103",
+                                                          style: TextStyle(
+                                                              fontSize:
+                                                                  defaultSize *
+                                                                      3.0,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w200),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    padding: EdgeInsets.only(
+                                                        left: defaultSize * 1.8,
+                                                        right:
+                                                            defaultSize * 1.5),
+                                                    child:
+                                                        SingleChildScrollView(
+                                                      scrollDirection:
+                                                          Axis.horizontal,
+                                                      child: Row(
+                                                        mainAxisAlignment:
+                                                            MainAxisAlignment
+                                                                .center,
+                                                        children: [
+                                                          Container(
+                                                            height:
+                                                                defaultSize *
+                                                                    3.5,
+                                                            child: Image(
+                                                                image: Svg(
+                                                                    "assets/icons/$iconNo.svg")),
+                                                          ),
+                                                          SizedBox(
+                                                              width:
+                                                                  defaultSize *
+                                                                      1),
+                                                          Tooltip(
+                                                            message:
+                                                                "Short Description about today's weather",
+                                                            child: AutoSizeText(
+                                                              state
+                                                                      .weatherData
+                                                                      .current
+                                                                      .weather[
+                                                                          0]
+                                                                      .description ??
+                                                                  "loading",
+                                                              style: TextStyle(
+                                                                fontSize:
+                                                                    defaultSize *
+                                                                        2.5,
+                                                              ),
+                                                              minFontSize: 18,
+                                                              overflow:
+                                                                  TextOverflow
+                                                                      .ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 5,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: Colors.transparent,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 4,
+                                      child: Padding(
+                                        padding: EdgeInsets.only(
+                                          left: defaultSize * 4,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Measures(
+                                              measureText: "UV Index",
+                                              measureIcon: Icons.wb_sunny,
+                                              measureValue:
+                                                  state.weatherData.current.uvi,
+                                              measureUnit: "",
+                                            ),
+                                            divider(),
+                                            Measures(
+                                              measureText: "Wind",
+                                              measureIcon: DesIcon.wind,
+                                              measureValue: state.weatherData
+                                                      .current.windSpeed
+                                                      .roundToDouble() *
+                                                  3.6,
+                                              measureUnit: "km/h",
+                                            ),
+                                            divider(),
+                                            Measures(
+                                              measureText: "Pressure",
+                                              measureIcon: Icons.speed_outlined,
+                                              measureValue: state
+                                                  .weatherData.current.pressure
+                                                  .toDouble(),
+                                              measureUnit: "hPa",
+                                            ),
+                                            divider(),
+                                            Measures(
+                                              measureText: "Humidity",
+                                              measureIcon: DesIcon.humidity,
+                                              measureValue: state
+                                                  .weatherData.current.humidity
+                                                  .toDouble(),
+                                              measureUnit: "%",
+                                            ),
+                                            divider(),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                  ],
+                                ),
+                              ),
+                              // SizedBox(height: defaultSize * 1.0),
+                              Expanded(
+                                flex: 4,
+                                child: SizedBox(
+                                  height: defaultSize * 49,
+                                  width: double.infinity,
+                                  child: LineGraph(
+                                    weatherData: state.weatherData,
+                                  ),
+                                ),
+                              ),
+                              // SizedBox(height: defaultSize * 10.0),
+                            ],
+                          ),
+                        )
+                      ]),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      left: defaultSize * 8,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Measures(
-                          measureText: "UV Index",
-                          measureIcon: Icons.wine_bar,
-                          measureValue: uvIndex,
-                          measureUnit: "",
-                        ),
-                        Divider(color: Colors.white, height: defaultSize * 1),
-                        Measures(
-                          measureText: "Wind",
-                          measureIcon: Icons.wine_bar,
-                          measureValue: wind,
-                          measureUnit: "km/h",
-                        ),
-                        Divider(color: Colors.white, height: defaultSize * 1),
-                        Measures(
-                          measureText: "Pressure",
-                          measureIcon: Icons.wine_bar,
-                          measureValue: pressure,
-                          measureUnit: "mb",
-                        ),
-                        Divider(color: Colors.white, height: defaultSize * 1),
-                        Measures(
-                          measureText: "Humidity",
-                          measureIcon: Icons.wine_bar,
-                          measureValue: humidity,
-                          measureUnit: "%",
-                        ),
-                        Divider(color: Colors.white, height: defaultSize * 1),
-                      ],
-                    ),
-                  ),
-                )
-              ],
-            ),
-            SizedBox(height: defaultSize * 3.0),
-            Row(
-              children: [
-                Expanded(
-                  flex: 30,
-                  child: LineGraph(weatherData: weatherData),
-                ),
-                Expanded(flex: 1, child: SizedBox(width: 1))
-              ],
-            ),
-          ],
+              );
+            }
+            return Center(child: Text("Error"));
+          },
         ),
       ),
     );
+  }
+
+  Widget divider() {
+    return Divider(color: Colors.white, height: defaultSize * 1);
   }
 }

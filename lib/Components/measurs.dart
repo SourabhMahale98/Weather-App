@@ -16,18 +16,19 @@ class Measures extends StatelessWidget {
   Widget build(BuildContext context) {
     SizedConfig().init(context);
     double defaultSize = SizedConfig.blockSizeVertical;
-    return Container(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "$measureText",
-            style: TextStyle(
-              fontSize: defaultSize * 2.3,
-              color: Color(0xffE3E3E3),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "$measureText",
+          style: TextStyle(
+            fontSize: defaultSize * 2.3,
+            color: Color(0xffE3E3E3),
           ),
-          Row(
+        ),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.ideographic,
             children: [
@@ -49,8 +50,8 @@ class Measures extends StatelessWidget {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

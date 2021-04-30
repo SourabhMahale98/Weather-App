@@ -1,11 +1,12 @@
+import 'package:weather/Services/weather_model.dart';
 import 'package:weather/sizedconfig.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-// import 'package:intl/intl.dart';
+import 'package:intl/intl.dart';
 
 class LineGraph extends StatefulWidget {
   LineGraph({this.weatherData});
-  final weatherData;
+  final WeatherModel weatherData;
   @override
   _LineGraphState createState() => _LineGraphState();
 }
@@ -13,34 +14,34 @@ class LineGraph extends StatefulWidget {
 class _LineGraphState extends State<LineGraph> {
   List<Color> gradientColors = [
     const Color(0xff23b6e6),
-    const Color(0xff02d39a),
-    const Color(0xffFFA500),
-    const Color(0xffFFA500),
-    const Color(0xffE3E3E3),
-    const Color(0xff808080),
+    const Color(0xff4B85FA).withOpacity(0.9),
+    const Color(0xff23b6e6),
+
+    // const Color(0xff02d39a),
+    // const Color(0xffFFA500),
+    // const Color(0xffFFA500),
+    // const Color(0xffE3E3E3),
+    // const Color(0xff808080),
   ];
+  String readTimestamp(int timestamp) {
+    var format = DateFormat('j');
+    var date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+    var dates = format.format(date);
+    return dates;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // var timestamp = widget.weatherData['current']['dt'];
-    // timestamp = timestamp * 4;
-    // print("Timestamp : " + timestamp.toString());
-    // var date = new DateTime.fromMillisecondsSinceEpoch(timestamp, isUtc: true);
-    // var formattedDate = DateFormat.yMMMd().format(date);
-    // print(formattedDate);
-
+    List<Current> hour = widget.weatherData.hourly;
     double defaultSize = SizedConfig.blockSizeVertical;
+    double defaultHorizon = SizedConfig.blockSizeHorizontal;
 
-    return Container(
-      height: defaultSize * 45,
+    return SafeArea(
       child: Padding(
         padding:
-            EdgeInsets.only(left: defaultSize * 4.0, right: defaultSize * 3.0),
+            EdgeInsets.only(left: defaultSize * 2.8, right: defaultSize * 3.4),
         child: LineChart(
           LineChartData(
-            // minX: 0,
-            // maxX: 6,
-            // minY: -10,
-            // maxY: 50,
             gridData: FlGridData(
               show: true,
               getDrawingHorizontalLine: (value) {
@@ -57,13 +58,14 @@ class _LineGraphState extends State<LineGraph> {
               LineChartBarData(
                 barWidth: 10,
                 spots: [
-                  FlSpot(1, 17),
-                  FlSpot(2, 20),
-                  FlSpot(3, 21),
-                  FlSpot(4, 23),
-                  FlSpot(5, 22),
-                  FlSpot(6, 17),
-                  FlSpot(7, 15),
+                  FlSpot(1, hour[0].temp),
+                  FlSpot(2, hour[2].temp),
+                  FlSpot(3, hour[5].temp),
+                  FlSpot(4, hour[8].temp),
+                  FlSpot(5, hour[11].temp),
+                  FlSpot(6, hour[14].temp),
+                  FlSpot(7, hour[17].temp),
+                  FlSpot(8, hour[20].temp),
                 ],
                 isCurved: true,
                 colors: gradientColors,
@@ -79,7 +81,6 @@ class _LineGraphState extends State<LineGraph> {
                 ),
               ),
             ],
-
             titlesData: FlTitlesData(
               show: true,
               bottomTitles: SideTitles(
@@ -88,25 +89,25 @@ class _LineGraphState extends State<LineGraph> {
                 getTextStyles: (value) => TextStyle(
                     color: Color(0xff9d9d9d),
                     fontWeight: FontWeight.bold,
-                    fontSize: defaultSize * 2.6),
+                    fontSize: defaultHorizon * 3.7),
                 getTitles: (value) {
                   switch (value.toInt()) {
                     case 1:
-                      return '6am';
+                      return readTimestamp(hour[0].dt);
                     case 2:
-                      return '9am';
+                      return readTimestamp(hour[2].dt);
                     case 3:
-                      return '12pm';
+                      return readTimestamp(hour[5].dt);
                     case 4:
-                      return '3pm';
+                      return readTimestamp(hour[8].dt);
                     case 5:
-                      return '6pm';
+                      return readTimestamp(hour[11].dt);
                     case 6:
-                      return '9pm';
+                      return readTimestamp(hour[14].dt);
                     case 7:
-                      return '12am';
+                      return readTimestamp(hour[17].dt);
                     case 8:
-                      return '3am';
+                      return readTimestamp(hour[20].dt);
                   }
                   return '';
                 },

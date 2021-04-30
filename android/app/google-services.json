@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "275998421051",
+    "project_id": "weatherry-fd3d0",
+    "storage_bucket": "weatherry-fd3d0.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:275998421051:android:39c4583209a707b0936c1e",
+        "android_client_info": {
+          "package_name": "com.sdm.weatherry"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "275998421051-l9t3400v5tbkacsdulce233bn2a9a94j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDT9IWcVmoa67Nr5apKBu0zn4DdXx8SPio"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "275998421051-l9t3400v5tbkacsdulce233bn2a9a94j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
