@@ -1,12 +1,13 @@
-# weather
+# weather App
 
-A new Flutter project.
+Flutter project.
 
 ## Getting Started
 
-This is app made with flutter and openweathermap Api
+<!-- This is app made with flutter and openweathermap Api
 you can download app from google play store:
-https://play.google.com/store/apps/details?id=com.sdm.weatherry
+https://play.google.com/store/apps/details?id=com.sdm.weatherry -->
+
 ![Screenshot_1617729485](https://user-images.githubusercontent.com/67370981/116685328-c7c78c00-a9cf-11eb-9034-3d35184d6f68.png)
 ![Screenshot_1617729474](https://user-images.githubusercontent.com/67370981/116685334-ca29e600-a9cf-11eb-9d18-e8fa4354df2b.png)
 
